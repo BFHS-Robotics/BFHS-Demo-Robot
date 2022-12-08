@@ -27,15 +27,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.firstinspires.ftc.robotcontroller.external.samples;
+package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.PIDCoefficients;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 /**
  * This file contains an example of a Linear "OpMode".
@@ -65,45 +66,37 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Basic: Omni Linear OpMode", group="Linear Opmode")
-@Disabled
-public class BasicOmniOpMode_Linear extends LinearOpMode {
+@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name="Basic: Omni Linear OpMode", group="Linear Opmode")
 
+public class TeleOp extends LinearOpMode {
+    public static double velocity = 50;
     // Declare OpMode members for each of the 4 motors.
     private ElapsedTime runtime = new ElapsedTime();
     private DcMotor leftFrontDrive = null;
     private DcMotor leftBackDrive = null;
     private DcMotor rightFrontDrive = null;
     private DcMotor rightBackDrive = null;
-    private DcMotorEx linear = null;
-    private DcMotor leftStabilizer = null;
-    private DcMotor rightStabilizer = null;
-    private Servo claw = null;
+    private DcMotorEx flywheel = null;
+    private Servo fire = null;
+
+    private boolean slow = false;
 
     @Override
     public void runOpMode() {
 
         // Initialize the hardware variables. Note that the strings used here must correspond
         // to the names assigned during the robot configuration step on the DS or RC devices.
-        leftFrontDrive  = hardwareMap.get(DcMotor.class, "left_front_drive");
-        leftBackDrive  = hardwareMap.get(DcMotor.class, "left_back_drive");
-        rightFrontDrive = hardwareMap.get(DcMotor.class, "right_front_drive");
-        rightBackDrive = hardwareMap.get(DcMotor.class, "right_back_drive");
-        linear = hardwareMap.get(DcMotorEx.class, "linear");
-        leftStabilizer = hardwareMap.get(DcMotor.class, "left_stable");
-        rightStabilizer = hardwareMap.get(DcMotor.class, "right_stable");
-        claw = hardwareMap.servo.get("servo");
+        leftFrontDrive  = hardwareMap.get(DcMotor.class, "fl");
+        leftBackDrive  = hardwareMap.get(DcMotor.class, "bl");
+        rightFrontDrive = hardwareMap.get(DcMotor.class, "fr");
+        rightBackDrive = hardwareMap.get(DcMotor.class, "br");
 
-        // ########################################################################################
-        // !!!            IMPORTANT Drive Information. Test your motor directions.            !!!!!
-        // ########################################################################################
-        // Most robots need the motors on one side to be reversed to drive forward.
-        // The motor reversals shown here are for a "direct drive" robot (the wheels turn the same direction as the motor shaft)
-        // If your robot has additional gear reductions or uses a right-angled drive, it's important to ensure
-        // that your motors are turning in the correct direction.  So, start out with the reversals here, BUT
-        // when you first test your robot, push the left joystick forward and observe the direction the wheels turn.
-        // Reverse the direction (flip FORWARD <-> REVERSE ) of any wheel that runs backward
-        // Keep testing until ALL the wheels move the robot forward when you push the left joystick forward.
+        flywheel = hardwareMap.get(DcMotorEx.class, "flywheel");
+        flywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        fire = hardwareMap.get(Servo.class, "launch");
+
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
@@ -163,47 +156,49 @@ public class BasicOmniOpMode_Linear extends LinearOpMode {
             */
 
             // Send calculated power to wheels
-            leftFrontDrive.setPower(leftFrontPower);
-            rightFrontDrive.setPower(rightFrontPower);
-            leftBackDrive.setPower(leftBackPower);
-            rightBackDrive.setPower(rightBackPower);
+            if(slow){
+                leftFrontDrive.setPower(leftFrontPower / 2);
+                rightFrontDrive.setPower(rightFrontPower / 2);
+                leftBackDrive.setPower(leftBackPower / 2);
+                rightBackDrive.setPower(rightBackPower / 2);
+            } else {
+                leftFrontDrive.setPower(leftFrontPower);
+                rightFrontDrive.setPower(rightFrontPower);
+                leftBackDrive.setPower(leftBackPower);
+                rightBackDrive.setPower(rightBackPower);
+            }
+
+
+            if(gamepad1.right_bumper) {
+                flywheel.setVelocity(28 * velocity);
+            }
+            else if(gamepad1.left_bumper) {
+                flywheel.setPower(1);
+            }
+            else {
+                flywheel.setVelocity(0);
+            }
+
+            if(gamepad1.x){
+                fire.setPosition(1);
+            } else {
+                fire.setPosition(0);
+            }
+
+            if(gamepad1.b){
+                if(slow){
+                    slow = false;
+                } else{
+                    slow = true;
+                }
+            }
 
             // Show the elapsed game time and wheel power.
             telemetry.addData("Status", "Run Time: " + runtime.toString());
             telemetry.addData("Front left/Right", "%4.2f, %4.2f", leftFrontPower, rightFrontPower);
             telemetry.addData("Back  left/Right", "%4.2f, %4.2f", leftBackPower, rightBackPower);
-            // displays linear slide position
-            telemetry.addData("Linear Slide position", linear.getCurrentPosition());
+            telemetry.addData("pidf", flywheel.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER).toString());
+            telemetry.addData("slow: ", String.valueOf(slow));
             telemetry.update();
-
-            // linear slide, second driver: right bumper up, left bumper down
-            if (gamepad2.right_bumper) {
-                linear.setVelocity(.1);
-            } else if (gamepad2.left_bumper) {
-                linear.setVelocity(-.1);
-            } else {
-                linear.setVelocity(0);
-            }
-
-            if (gamepad2.a) {
-                claw.setPosition(1);
-            } else if (gamepad2.b) {
-                claw.setPosition(0);
-            }
-
-            // stabilizer: y in, x out
-            if (gamepad2.y) {
-                leftStabilizer.setPower(.1);
-                rightStabilizer.setPower(-.1);
-            } else if (gamepad2.x) {
-                leftStabilizer.setPower(-.1);
-                rightStabilizer.setPower(.1);
-            } else {
-                leftStabilizer.setPower(0);
-                rightStabilizer.setPower(0);
-            }
-
-
         }
-    }
-}
+    }}
