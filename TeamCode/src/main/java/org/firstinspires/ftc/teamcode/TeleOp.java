@@ -105,7 +105,6 @@ public class TeleOp extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         telemetry.addData("Status", "Initialized");
         telemetry.update();
-        //hello test
 
         waitForStart();
         runtime.reset();
